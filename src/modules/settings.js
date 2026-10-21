@@ -1,4 +1,4 @@
-import { emitEvent } from "./helpers.js";
+import { emitEvent, isWhitelisted } from "./helpers.js";
 import { DEFAULT_SETTINGS } from "../constants.js";
 
 class Settings {
@@ -93,10 +93,7 @@ class Settings {
 
     toggleOnOffStatus() {
         if (
-            !this._settings.whitelist?.includes(
-                window.location.hostname?.split("www.")?.[1] ??
-                    window.location.hostname
-            )
+            !isWhitelisted(this._settings.whitelist, window.location.hostname)
         ) {
             emitEvent("toggleOnOffStatus", this);
         }

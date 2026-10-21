@@ -55,6 +55,34 @@ const isImageTooSmall = (img) => {
     return img.width < MIN_IMG_WIDTH || img.height < MIN_IMG_HEIGHT;
 };
 
+/**
+ * Normalize a hostname for whitelist comparison:
+ * lowercase, trim, and strip only a LEADING "www.".
+ * (The previous split("www.")?.[1] pattern corrupted hostnames that
+ * contain "www." anywhere else, e.g. "sub.www.example.com".)
+ */
+const normalizeHostname = (hostname) =>
+    String(hostname ?? "")
+        .toLowerCase()
+        .trim()
+        .replace(/^www\./, "");
+
+/**
+ * Check whether `hostname` is covered by a whitelist entry.
+ * An entry matches the exact hostname or any subdomain of it,
+ * e.g. "example.com" matches "example.com" and "sub.example.com".
+ * Backward compatible with entries stored with a leading "www.".
+ */
+const isWhitelisted = (whitelist, hostname) => {
+    const site = normalizeHostname(hostname);
+    if (!site) return false;
+    return (Array.isArray(whitelist) ? whitelist : []).some((entry) => {
+        const allowed = normalizeHostname(entry);
+        if (!allowed) return false;
+        return site === allowed || site.endsWith("." + allowed);
+    });
+};
+
 const calcResize = (width, height, type = "image") => {
     let newWidth = width;
     let newHeight = height;
@@ -251,6 +279,8 @@ export {
     timeTaken,
     resetElement,
     isImageTooSmall,
+    normalizeHostname,
+    isWhitelisted,
     getCanvas,
     disableVideo,
     enableVideo,

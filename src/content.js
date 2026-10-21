@@ -3,6 +3,7 @@ import {
     initMutationObserver,
     killObserver,
 } from "./modules/observers";
+import { isWhitelisted } from "./modules/helpers";
 import Settings from "./modules/settings";
 import { attachStyleListener } from "./modules/style";
 
@@ -25,12 +26,7 @@ if (window.self === window.top) {
     Settings.init()
         .then((settings) => {
             if (
-                settings
-                    .getWhitelist()
-                    .includes(
-                        window.location.hostname?.split("www.")?.[1] ??
-                            window.location.hostname
-                    )
+                isWhitelisted(settings.getWhitelist(), window.location.hostname)
             ) {
                 console.log("HB==WHITELISTED SITE");
                 killObserver();
