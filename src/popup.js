@@ -103,7 +103,7 @@ function displaySettings(settings) {
         settings.unblurImages;
     document.querySelector("input[name=unblurVideos]").checked =
         settings.unblurVideos;
-    document.getElementById("language").value = settings.language;
+    document.getElementById("language").value = settings.language ?? "en";
     displayWhiteList();
     toggleAllInputs();
 }
@@ -223,10 +223,16 @@ function updateCheckbox(key) {
 }
 
 function changeLanguage(lang, settings) {
+    const allTranslations = getTranslations(settings);
+    // fall back to English when the requested/browser language is not
+    // available (e.g. a browser set to de/fr/es would previously throw
+    // on Object.keys(undefined) and break the whole popup)
+    if (!allTranslations?.[lang]) lang = "en";
+
     document.body.lang = lang;
     document.getElementById("container").dir = HB_TRANSLATIONS_DIR[lang];
 
-    const translations = getTranslations(settings)?.[lang];
+    const translations = allTranslations[lang];
     const keys = Object.keys(translations);
     keys.forEach((key) => {
         const elements = document.querySelectorAll(key);

@@ -1,19 +1,5 @@
 // when installed or updated load settings
-
-const defaultSettings = {
-    status: true,
-    blurryStartMode: false,
-    blurAmount: 20,
-    blurImages: true,
-    blurVideos: true,
-    blurMale: false,
-    blurFemale: true,
-    unblurImages: false,
-    unblurVideos: false,
-    gray: true,
-    strictness: 0.5, // goes from 0 to 1,
-    whitelist: [],
-};
+import { DEFAULT_SETTINGS } from "./constants.js";
 
 chrome.runtime.onInstalled.addListener(function () {
     chrome.storage.sync.get(["hb-settings"], function (result) {
@@ -21,11 +7,14 @@ chrome.runtime.onInstalled.addListener(function () {
             result["hb-settings"] === undefined ||
             result["hb-settings"] === null
         ) {
-            chrome.storage.sync.set({ "hb-settings": defaultSettings });
+            chrome.storage.sync.set({ "hb-settings": DEFAULT_SETTINGS });
         } else {
             // if there are any new settings, add them to the settings object
             chrome.storage.sync.set({
-                "hb-settings": { ...defaultSettings, ...result["hb-settings"] },
+                "hb-settings": {
+                    ...DEFAULT_SETTINGS,
+                    ...result["hb-settings"],
+                },
             });
         }
     });
@@ -114,9 +103,9 @@ chrome.runtime.onInstalled.addListener(function (details) {
         // if (currentVersion == "0.2.4" || currentVersion == "0.2.5") return; // no need to show update page for this version
         // const previousVersion = details.previousVersion;
         // if (currentVersion != previousVersion) {
-        // 	chrome.tabs.create({
-        // 		url: "https://update.haramblur.com/",
-        // 	});
+        //      chrome.tabs.create({
+        //              url: "https://update.haramblur.com/",
+        //      });
         // }
     }
 });

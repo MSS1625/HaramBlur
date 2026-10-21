@@ -11,7 +11,8 @@
     },
     "minimum_chrome_version": "109",
     "background": {
-        "service_worker": "src/background.js"
+        "service_worker": "src/background.js",
+        "type": "module"
     },
     "icons": {
         "48": "src/assets/hb-icon-48.png",
