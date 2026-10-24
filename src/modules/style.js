@@ -2,6 +2,7 @@
 // This module exports the style sheet and blur effect functions
 
 import { emitEvent, listenToEvent } from "./helpers.js";
+import { setBgBlurStyle } from "./bgImages.js";
 
 const BLURRY_START_MODE_TIMEOUT = 7000; // TODO: make this a setting maybe?
 let hbStyleSheet, blurryStartStyleSheet, _settings;
@@ -20,6 +21,11 @@ const setStyle = ({ detail: settings }) => {
     if (!hbStyleSheet) {
         initStylesheets();
     }
+    // EXPERIMENTAL: keep the background-image blur style in sync too
+    setBgBlurStyle({
+        blurAmount: _settings.getBlurAmount(),
+        gray: _settings.isGray(),
+    });
     if (!_settings.shouldDetect()) {
         hbStyleSheet.innerHTML = "";
         return;
@@ -48,37 +54,37 @@ const setStyle = ({ detail: settings }) => {
       transition: filter 0.1s ease !important;
       opacity: unset !important;
     }
-	
+        
   `;
     if (unblurSelectors) {
         hbStyleSheet.innerHTML += `
-		${unblurSelectors} {
-			filter: blur(0px) ${_settings.isGray() ? "grayscale(0%)" : ""} !important;
-			transition: filter 0.5s ease !important;
-			transition-delay: 1s !important;
-		  }
-	`;
+                ${unblurSelectors} {
+                        filter: blur(0px) ${_settings.isGray() ? "grayscale(0%)" : ""} !important;
+                        transition: filter 0.5s ease !important;
+                        transition-delay: 1s !important;
+                  }
+        `;
     }
 
     hbStyleSheet.innerHTML += `
-	.hb-blur-temp { 
-		animation: hb-blur-temp ${BLURRY_START_MODE_TIMEOUT}ms ease-in-out forwards !important;
-	}
+        .hb-blur-temp { 
+                animation: hb-blur-temp ${BLURRY_START_MODE_TIMEOUT}ms ease-in-out forwards !important;
+        }
 
-	#hb-in-canvas {
-		display: none !important;
-		visibility: hidden !important;
-	}
+        #hb-in-canvas {
+                display: none !important;
+                visibility: hidden !important;
+        }
 
-	@keyframes hb-blur-temp {
-		0% { filter: blur(${_settings.getBlurAmount()}px) ${
-            _settings.isGray() ? "grayscale(100%)" : ""
-        }; }
-		95% { filter: blur(${_settings.getBlurAmount()}px) ${
-            _settings.isGray() ? "grayscale(100%)" : ""
-        }; }
-		100% { filter: blur(0px) ${_settings.isGray() ? "grayscale(0%)" : ""}; }
-	}
+        @keyframes hb-blur-temp {
+                0% { filter: blur(${_settings.getBlurAmount()}px) ${
+                    _settings.isGray() ? "grayscale(100%)" : ""
+                }; }
+                95% { filter: blur(${_settings.getBlurAmount()}px) ${
+                    _settings.isGray() ? "grayscale(100%)" : ""
+                }; }
+                100% { filter: blur(0px) ${_settings.isGray() ? "grayscale(0%)" : ""}; }
+        }
   `;
 };
 const applyBlurryStart = (node) => {

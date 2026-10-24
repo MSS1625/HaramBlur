@@ -11,6 +11,7 @@ import {
 
 import { applyBlurryStart } from "./style.js";
 import { processImage, processVideo } from "./processing2.js";
+import { processNodeBackgrounds } from "./bgImages.js";
 import { STATUSES } from "../constants.js";
 let mutationObserver, _settings;
 let videosInProcess = [];
@@ -36,6 +37,8 @@ const initMutationObserver = () => {
                     processNode(node, (node) => {
                         observeNode(node, false);
                     });
+                    // EXPERIMENTAL: also cover CSS background images (issue #190)
+                    processNodeBackgrounds(node);
                 });
             } else if (mutation.type === "attributes") {
                 // if the src attribute of an image or video changes, process it
