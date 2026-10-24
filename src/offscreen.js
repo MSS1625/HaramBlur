@@ -39,28 +39,49 @@ let frameImage = new Image();
 
 const handleVideoDetection = async (request, sender, sendResponse) => {
     const { frame } = request;
-    const { data, timestamp } = frame;
+    const { bitmap, data, timestamp } = frame ?? {};
     if (activeFrame) {
+        // drop the incoming bitmap if we can't process it right now
+        bitmap?.close?.();
         sendResponse({ result: "skipped" });
         return;
     }
     activeFrame = true;
+
+    const finish = (response) => {
+        activeFrame = false;
+        sendResponse(response);
+    };
+
+    // Fast path (Chrome 148+): the frame arrived as a structured-cloned
+    // ImageBitmap — no JPEG decode needed, feed it to the models directly.
+    if (bitmap) {
+        try {
+            const result = await runDetection(bitmap, true);
+            finish({ type: "detectionResult", result, timestamp });
+        } catch (e) {
+            console.log("HB== error in detectImage", e);
+            finish({ result: "error" });
+        } finally {
+            bitmap.close?.();
+        }
+        return;
+    }
+
+    // Legacy path: the frame arrived as a JPEG blob URL
     frameImage.onload = () => {
         runDetection(frameImage, true)
             .then((result) => {
-                activeFrame = false;
-                sendResponse({ type: "detectionResult", result, timestamp });
+                finish({ type: "detectionResult", result, timestamp });
             })
             .catch((e) => {
                 console.log("HB== error in detectImage", e);
-                activeFrame = false;
-                sendResponse({ result: "error" });
+                finish({ result: "error" });
             });
     };
     frameImage.onerror = (e) => {
         console.log("HB== image error", e);
-        activeFrame = false;
-        sendResponse({ result: "error" });
+        finish({ result: "error" });
     };
     frameImage.src = data;
 };
@@ -85,7 +106,6 @@ const runDetection = async (img, isVideo = false) => {
     const nsfwResult = await detector.nsfwModelClassify(tensor);
     // console.log("offscreen nsfw result", nsfwResult);
     const strictness = settings.getStrictness() * (isVideo ? 0.75 : 1); // makes detection less strict for videos (to reduce false positives)
-    activeFrame = false;
     if (containsNsfw(nsfwResult, strictness)) {
         detector.human.tf.dispose(tensor);
         return "nsfw";

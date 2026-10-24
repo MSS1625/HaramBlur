@@ -11,6 +11,13 @@ import { STATUSES } from "../constants.js";
 
 const FRAME_RATE = 1000 / 25; // 25 fps
 
+// Chrome 148+ can opt into structured-clone message serialization via the
+// "message_serialization": "structured_clone" manifest key. Older versions
+// drop unknown manifest keys from getManifest(), so this doubles as a
+// reliable feature detection for the ImageBitmap fast path below.
+const SUPPORTS_STRUCTURED_CLONE =
+    !!chrome.runtime.getManifest()?.message_serialization;
+
 // threshold for number of consecutive frames that need to be positive for the image to be considered positive
 const POSITIVE_THRESHOLD = 1; //at 25 fps, this is 0.04 seconds of consecutive positive detections
 // threshold for number of consecutive frames that need to be negative for the image to be considered negative
@@ -83,6 +90,29 @@ const processFrame = async (video, { width, height }) => {
         try {
             ctx.drawImage(video, 0, 0, width, height);
 
+            // Fast path (Chrome 148+): ship the frame as an ImageBitmap via
+            // structured-clone messaging. Skips the JPEG encode on this side
+            // and the <img> decode on the offscreen side entirely.
+            if (SUPPORTS_STRUCTURED_CLONE) {
+                const bitmap = await createImageBitmap(canv);
+                chrome.runtime.sendMessage(
+                    {
+                        type: "videoDetection",
+                        frame: {
+                            bitmap,
+                            timestamp: video.currentTime,
+                        },
+                    },
+                    (response) => {
+                        // free the bitmap's memory right away
+                        bitmap.close();
+                        resolve(response);
+                    }
+                );
+                return;
+            }
+
+            // Fallback (all supported Chrome versions): JPEG blob URL
             const blob = await canvToBlob(canv, {
                 type: "image/jpeg",
                 quality: 0.6,
