@@ -38,7 +38,6 @@ const RESULTS = {
 };
 
 let activeFrame = false;
-let canv, ctx;
 
 const processImage = (node, STATUSES) => {
     try {
@@ -82,7 +81,7 @@ const processImage = (node, STATUSES) => {
     }
 };
 
-const processFrame = async (video, { width, height }) => {
+const processFrame = async (video, { width, height, canv, ctx }) => {
     if (!video || video.ended) {
         return;
     }
@@ -138,7 +137,7 @@ const processFrame = async (video, { width, height }) => {
     });
 };
 
-const videoDetectionLoop = async (video, { width, height }) => {
+const videoDetectionLoop = async (video, { width, height, canv, ctx }) => {
     // get the current timestamp
     const currTime = performance.now();
 
@@ -164,7 +163,7 @@ const videoDetectionLoop = async (video, { width, height }) => {
 
                 if (!activeFrame) {
                     activeFrame = true;
-                    processFrame(video, { width, height })
+                    processFrame(video, { width, height, canv, ctx })
                         .then(({ result, timestamp }) => {
                             if (result === "error") {
                                 throw new Error("HB==Error from processFrame");
@@ -186,7 +185,31 @@ const videoDetectionLoop = async (video, { width, height }) => {
                             processVideoDetections(result, video);
                         })
                         .catch((error) => {
-                            throw error;
+                            if (error?.name === "SecurityError") {
+                                // The video is cross-origin and its CDN does
+                                // not send CORS headers, so its pixels cannot
+                                // be read for classification. Fail safe: keep
+                                // the blur on and stop spending cycles on this
+                                // element, instead of breaking the site's
+                                // playback. Hover-unblur, whitelisting and the
+                                // per-video toggle all still work.
+                                video.classList.add("hb-blur");
+                                video.dataset.HBstatus = STATUSES.ERROR;
+                                video.onplay = null;
+                                cancelAnimationFrame(video.HBrafId);
+                                console.log(
+                                    "HB==Unreadable video (no CORS), keeping blur",
+                                    video
+                                );
+                                return;
+                            }
+                            video.dataset.HBerrored =
+                                parseInt(video.dataset.HBerrored ?? 0) + 1;
+                            console.log(
+                                "HB==Video detection loop error",
+                                error,
+                                video
+                            );
                         })
                         .finally(() => {
                             activeFrame = false;
@@ -204,17 +227,16 @@ const videoDetectionLoop = async (video, { width, height }) => {
         // remove onplay listener
         video.onplay = null;
         cancelAnimationFrame(video.HBrafId);
-        video.removeAttribute("crossorigin");
         return;
     }
     if (!video.paused) {
         video.HBrafId = requestAnimationFrame(() =>
-            videoDetectionLoop(video, { width, height })
+            videoDetectionLoop(video, { width, height, canv, ctx })
         );
     } else {
         video.onplay = () => {
             video.HBrafId = requestAnimationFrame(() =>
-                videoDetectionLoop(video, { width, height })
+                videoDetectionLoop(video, { width, height, canv, ctx })
             );
         };
     }
@@ -229,16 +251,18 @@ const processVideo = async (node) => {
             node.videoHeight ?? node.clientHeight,
             "video"
         );
-        if (!canv) {
-            canv = getCanvas(newWidth, newHeight, true);
-            ctx = canv.getContext("2d", {
-                alpha: false,
-                willReadFrequently: true,
-            });
-        }
-        // set the width and height of the video
-        node.width = newWidth;
-        node.height = newHeight;
+        // One canvas per video: drawing a cross-origin frame taints a
+        // canvas permanently, and a shared canvas would then poison
+        // every other video in the tab with SecurityErrors.
+        const canv = getCanvas(newWidth, newHeight, true);
+        const ctx = canv.getContext("2d", {
+            alpha: false,
+            willReadFrequently: true,
+        });
+
+        // NOTE: the live element's width/height attributes are left
+        // untouched — resizing the page's video broke site layouts and
+        // SPA hydration. The canvas is sized for analysis instead.
 
         if (canv.width !== newWidth || canv.height !== newHeight) {
             canv.width = newWidth;
@@ -249,7 +273,12 @@ const processVideo = async (node) => {
 
         // start the video detection loop but don't block the main thread
         requestIdleCB(() => {
-            videoDetectionLoop(node, { width: newWidth, height: newHeight });
+            videoDetectionLoop(node, {
+                width: newWidth,
+                height: newHeight,
+                canv,
+                ctx,
+            });
         });
     } catch (e) {
         console.log("HB== processVideo error", e);

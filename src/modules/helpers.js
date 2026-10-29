@@ -34,10 +34,13 @@ const loadImage = async (imgSrc, imgWidth, imgHeight) => {
 };
 
 const loadVideo = async (video) => {
-    // TODO: check if video is too small resolve false
-
+    // NOTE: we deliberately do NOT set `crossorigin` on the live element.
+    // Setting it used to force the browser into a CORS reload of the
+    // video, which broke playback entirely on sites whose CDN does not
+    // send CORS headers (issues #210, #205, #191). The video is left as
+    // the page created it; unreadable (tainted) frames are handled by
+    // the detection loop instead.
     return await new Promise((resolve, reject) => {
-        video.setAttribute("crossorigin", "anonymous");
         if (video.readyState >= 3 && video.videoHeight) {
             resolve(true);
         }
