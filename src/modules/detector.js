@@ -3,7 +3,11 @@
 const nsfwUrl = chrome.runtime.getURL("src/assets/models/nsfwjs/model.json");
 
 const HUMAN_CONFIG = {
-    modelBasePath: "https://cdn.jsdelivr.net/npm/@vladmandic/human/models/",
+    // Models are bundled with the extension (matching the vendored Human
+    // 3.2.2 in tfjs/): no CDN round-trip on first run, works offline, and
+    // no silent model updates drifting away from the bundled library.
+    // The extension ships them in src/assets/models/human/.
+    modelBasePath: chrome.runtime.getURL("src/assets/models/human/"),
     backend: "humangl",
     // debug: true,
     cacheSensitivity: 0.9,
