@@ -24,7 +24,7 @@ const startObserving = () => {
         characterData: false,
         subtree: true,
         attributes: true,
-        attributeFilter: ["src"],
+        attributeFilter: ["src", "srcset"],
     });
 };
 
@@ -34,16 +34,38 @@ const initMutationObserver = () => {
         mutations.forEach((mutation) => {
             if (mutation.type === "childList") {
                 mutation.addedNodes.forEach((node) => {
-                    processNode(node, (node) => {
-                        observeNode(node, false);
+                    // A <source> element is always added inside a
+                    // <picture> or <video>; climb to its parent so the
+                    // img/video it feeds gets (re)processed.
+                    const container =
+                        node.tagName === "SOURCE" ? node.parentElement : node;
+                    // swapping in a <source> (theme/resolution switch,
+                    // lazy-load hydration) can change what the user
+                    // sees — treat it like a src change.
+                    const isSourceSwap = node.tagName === "SOURCE";
+                    processNode(container, (node) => {
+                        observeNode(node, isSourceSwap);
                     });
                     // EXPERIMENTAL: also cover CSS background images (issue #190)
                     processNodeBackgrounds(node);
                 });
             } else if (mutation.type === "attributes") {
-                // if the src attribute of an image or video changes, process it
+                // if the src/srcset attribute of an image or video
+                // changes, process it
                 const node = mutation.target;
-                observeNode(node, mutation?.attributeName === "src");
+                if (node.tagName === "SOURCE") {
+                    // a <source> inside <picture>/<video> changed —
+                    // re-check the media element it feeds
+                    processNode(node.parentElement, (node) =>
+                        observeNode(node, true)
+                    );
+                } else {
+                    observeNode(
+                        node,
+                        mutation?.attributeName === "src" ||
+                            mutation?.attributeName === "srcset"
+                    );
+                }
             }
         });
     });

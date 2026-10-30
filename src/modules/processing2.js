@@ -46,7 +46,11 @@ const processImage = (node, STATUSES) => {
             {
                 type: "imageDetection",
                 image: {
-                    src: node.src,
+                    // currentSrc is the URL the browser actually picked
+                    // (srcset/picture resolution) — analyzing the src
+                    // fallback used to classify a different image than
+                    // the one the user sees.
+                    src: node.currentSrc || node.src,
                     width: node.width || node.naturalWidth,
                     height: node.height || node.naturalHeight,
                 },
